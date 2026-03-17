@@ -8,6 +8,7 @@ Haoshen Hong <haoshen@stanford.edu>
 """
 
 import sys
+import pprint
 
 class PartialParse(object):
     def __init__(self, sentence):
@@ -32,7 +33,9 @@ class PartialParse(object):
         ### Note: The root token should be represented with the string "ROOT"
         ### Note: If you need to use the sentence object to initialize anything, make sure to not directly 
         ###       reference the sentence object.  That is, remember to NOT modify the sentence object. 
-
+        self.stack = ["ROOT"]
+        self.buffer = list(sentence)
+        self.dependencies = list()
 
         ### END YOUR CODE
 
@@ -51,9 +54,33 @@ class PartialParse(object):
         ###         1. Shift
         ###         2. Left Arc
         ###         3. Right Arc
-
-
+        # pprint.pprint(f"before transition: {transition}, then: stack{self.stack}, buffer{self.buffer}, dependencies{self.dependencies}")
+        if transition == "S":
+            if not self.buffer:
+                print("buffer is empty NOW!")  
+            else:
+                self.stack.append(self.buffer.pop(0))
+        elif transition == "LA":
+            if len(self.stack) >= 2:
+                head = self.stack[-1]
+                dependent = self.stack.pop(-2)
+                self.dependencies.append((head, dependent))
+        elif transition == "RA":
+            if len(self.stack) >= 2:
+                head = self.stack[-2]
+                dependent = self.stack.pop(-1)
+                self.dependencies.append((head, dependent))
+        else:
+            print("ERROR")
+            exit(3)
+        # pprint.pprint(f"after transition: {transition}, then: stack{self.stack}, buffer{self.buffer}, dependencies{self.dependencies}")
+        # print()
         ### END YOUR CODE
+
+    def check_end(self):
+        if len(self.stack) == 1 and not self.buffer:
+            return True
+        return False
 
     def parse(self, transitions):
         """Applies the provided transitions to this PartialParse
@@ -102,8 +129,17 @@ def minibatch_parse(sentences, model, batch_size):
     ###             contains references to the same objects. Thus, you should NOT use the `del` operator
     ###             to remove objects from the `unfinished_parses` list. This will free the underlying memory that
     ###             is being accessed by `partial_parses` and may cause your code to crash.
-
-
+    partial_parses = [PartialParse(sentence) for sentence in sentences]
+    unfinished_parses = partial_parses[:]
+    while unfinished_parses:
+        ready_to_parses = unfinished_parses[:batch_size:]
+        transitions = model.predict(ready_to_parses)
+        for pp, trans in zip(ready_to_parses, transitions):
+            pp.parse_step(trans)
+            if pp.check_end():
+                unfinished_parses.remove(pp)
+    
+    dependencies = [pp.dependencies for pp in partial_parses]
     ### END YOUR CODE
 
     return dependencies
