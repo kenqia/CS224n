@@ -17,7 +17,7 @@ Options:
     --train-src=<file>         File of training source sentences
     --train-tgt=<file>         File of training target sentences
     --size=<int>               vocab size [default: 50000]
-    --freq-cutoff=<int>        frequency cutoff [default: 2]
+    --freq-cutoff=<int>        frequency cutoff [default: 2] ??
 """
 
 from collections import Counter
