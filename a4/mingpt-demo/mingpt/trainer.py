@@ -13,6 +13,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
+from torch.amp import autocast, GradScaler
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class Trainer:
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
         self.config = config
-
+        self.scaler = GradScaler(device='cuda')
         # take over whatever gpus are on the system
         self.device = 'cpu'
         if torch.cuda.is_available():
@@ -60,7 +61,6 @@ class Trainer:
         model, config = self.model, self.config
         raw_model = model.module if hasattr(self.model, "module") else model
         optimizer = raw_model.configure_optimizers(config)
-
         def run_epoch(split):
             is_train = split == 'train'
             model.train(is_train)
@@ -79,17 +79,32 @@ class Trainer:
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = model(x, y)
-                    loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
+
+                    with autocast(device_type='cuda'):
+                        logits, loss = model(x, y)
+                        loss = loss.mean()
+                    # logits, loss = model(x, y)
+                    # loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
                     losses.append(loss.item())
 
                 if is_train:
 
                     # backprop and update the parameters
                     model.zero_grad()
-                    loss.backward()
+                    # loss.backward()
+                    # torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
+                    # optimizer.step()
+
+                    # 使用 scaler 缩放梯度，防止 FP16 下溢
+                    self.scaler.scale(loss).backward()
+                    
+                    # 裁剪梯度前需要 unscale
+                    self.scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
-                    optimizer.step()
+                    
+                    # 更新参数
+                    self.scaler.step(optimizer)
+                    self.scaler.update()
 
                     # decay the learning rate based on our progress
                     if config.lr_decay:

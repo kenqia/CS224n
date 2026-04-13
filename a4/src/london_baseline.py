@@ -12,7 +12,27 @@ def main():
 
     # Compute accuracy in the range [0.0, 100.0]
     ### YOUR CODE HERE ###
-    pass
+    argp = argparse.ArgumentParser()
+    argp.add_argument('--eval_corpus_path', default=None)
+    args = argp.parse_args()
+
+    assert args.eval_corpus_path is not None
+
+    with open(args.eval_corpus_path, encoding='utf-8') as f:
+        lines = f.readlines()
+
+    length = len(lines)
+    predictions = ['London'] * length
+
+    total, correct = utils.evaluate_places(args.eval_corpus_path, predictions)
+    
+    if total > 0:
+        accuracy = (correct / total) * 100
+        print(f'Correct: {correct} out of {total}: {accuracy}%')
+    else:
+        accuracy = 0.0
+        print('No examples found.')
+
     ### END YOUR CODE ###
 
     return accuracy

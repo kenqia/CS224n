@@ -66,13 +66,16 @@ model = None
 if args.variant == 'vanilla':
     # TODO: [part c] Make some model here
     ### YOUR CODE HERE ###
-    pass
+    model = models.GPT(mconf)
+    model.to(device)
     ### END YOUR CODE ###
 elif args.variant == 'rope':
     # TODO: [part g] Make some other model here
     # set mconf.rope parameter
     ### YOUR CODE HERE ###
-    pass
+    mconf.rope = True
+    model = models.GPT(mconf)
+    model.to(device)
     ### END YOUR CODE ###
 else:
     raise ValueError("Unknown model variant")
@@ -102,7 +105,18 @@ if args.function == 'pretrain':
     # writer=writer
 
     ### YOUR CODE HERE ###
-    pass
+    tconf = trainer.TrainerConfig(max_epochs=650,
+                batch_size=128,
+                learning_rate=args.pretrain_lr,
+                lr_decay=True,
+                warmup_tokens=512*20,
+                final_tokens=650*len(pretrain_dataset)*block_size,
+                num_workers=4,
+                writer=writer
+            )
+    t = trainer.Trainer(model, pretrain_dataset, None, tconf)
+    t.train()
+    torch.save(model.state_dict(), args.writing_params_path)
     ### END YOUR CODE ###
 elif args.function == 'finetune':
     assert args.writing_params_path is not None
@@ -141,13 +155,45 @@ elif args.function == 'finetune':
     #     number of epochs for each case.
 
     ### YOUR CODE HERE ###
-    pass
+    text_train = open(args.finetune_corpus_path, encoding='utf-8').read()
+    train_dataset = dataset.NameDataset(pretrain_dataset ,text_train)
+
+    tconf = None
+    if args.reading_params_path is not None:
+        state_dict = torch.load(args.reading_params_path, map_location=torch.device(device))
+        model.load_state_dict(state_dict=state_dict)
+        tconf = trainer.TrainerConfig(
+            max_epochs=10,
+            batch_size=256,
+            learning_rate=args.finetune_lr,
+            lr_decay=True,
+            warmup_tokens=512*20,
+            final_tokens=200*len(pretrain_dataset)*block_size,
+            num_workers=4,
+            writer=writer
+        )
+    else:
+        tconf = trainer.TrainerConfig(
+            max_epochs=75,
+            batch_size=256,
+            learning_rate=args.finetune_lr,
+            lr_decay=True,
+            warmup_tokens=512*20,
+            final_tokens=200*len(pretrain_dataset)*block_size,
+            num_workers=4,
+            writer=writer
+        )
+    t = trainer.Trainer(model, train_dataset, None, tconf)
+    t.train()
+
+    weights = model.state_dict()
+    torch.save(weights, args.writing_params_path)
     ### END YOUR CODE ###
 elif args.function == 'evaluate':
     assert args.outputs_path is not None
     assert args.reading_params_path is not None
     assert args.eval_corpus_path is not None
-    model.load_state_dict(torch.load(args.reading_params_path))
+    model.load_state_dict(torch.load(args.reading_params_path, map_location=torch.device(device)))
     correct = 0
     total = 0
     with open(args.outputs_path, 'w', encoding='utf-8') as fout:

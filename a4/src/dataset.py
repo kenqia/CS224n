@@ -101,7 +101,23 @@ class CharCorruptionDataset(Dataset):
     def __getitem__(self, idx):
         # TODO [part e]: see spec above
         ### YOUR CODE HERE ###
-        pass
+        document = self.data[idx]
+        truncate_length = random.randint(4, int(self.block_size*7/8))
+        document = document[:truncate_length]
+        truncate_length = len(document)
+
+        masked_lenght = int(random.uniform(0, 1./2 * truncate_length))
+        start = random.randint(0, truncate_length - masked_lenght - 1)
+        prefix, masked_content, suffix = document[0:start], document[start:start+masked_lenght], document[start+masked_lenght:]
+
+        masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content
+        pad_num = self.block_size + 1 - len(masked_string)
+        masked_string = masked_string + (self.PAD_CHAR * pad_num)
+        x = masked_string[:-1]
+        y = masked_string[1:]
+        x = torch.tensor([self.stoi[c] for c in x], dtype=torch.long)
+        y = torch.tensor([self.stoi[c] for c in y], dtype=torch.long)
+        return x, y
         ### END YOUR CODE ###
 
 
