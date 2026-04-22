@@ -8,6 +8,7 @@ model_eval_multitask to evaluate your model on the 3 tasks' dev sets.
 '''
 
 import torch
+from torch.amp import autocast
 from sklearn.metrics import f1_score, accuracy_score
 from tqdm import tqdm
 import numpy as np
@@ -63,8 +64,8 @@ def model_eval_multitask(sentiment_dataloader,
 
             b_ids = b_ids.to(device)
             b_mask = b_mask.to(device)
-
-            logits = model.predict_sentiment(b_ids, b_mask)
+            with autocast('cuda'):
+                logits = model.predict_sentiment(b_ids, b_mask)
             y_hat = logits.argmax(dim=-1).flatten().cpu().numpy()
             b_labels = b_labels.flatten().cpu().numpy()
 
@@ -89,8 +90,9 @@ def model_eval_multitask(sentiment_dataloader,
             b_mask1 = b_mask1.to(device)
             b_ids2 = b_ids2.to(device)
             b_mask2 = b_mask2.to(device)
-
-            logits = model.predict_paraphrase(b_ids1, b_mask1, b_ids2, b_mask2)
+            
+            with autocast('cuda'):
+                logits = model.predict_paraphrase(b_ids1, b_mask1, b_ids2, b_mask2)
             y_hat = logits.sigmoid().round().flatten().cpu().numpy()
             b_labels = b_labels.flatten().cpu().numpy()
 
@@ -116,7 +118,8 @@ def model_eval_multitask(sentiment_dataloader,
             b_ids2 = b_ids2.to(device)
             b_mask2 = b_mask2.to(device)
 
-            logits = model.predict_similarity(b_ids1, b_mask1, b_ids2, b_mask2)
+            with autocast('cuda'):
+                logits = model.predict_similarity(b_ids1, b_mask1, b_ids2, b_mask2)
             y_hat = logits.flatten().cpu().numpy()
             b_labels = b_labels.flatten().cpu().numpy()
 

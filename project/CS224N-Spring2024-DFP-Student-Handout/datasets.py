@@ -13,7 +13,7 @@ import csv
 import torch
 from torch.utils.data import Dataset
 from tokenizer import BertTokenizer
-
+import string
 
 def preprocess_string(s):
     return ' '.join(s.lower()
@@ -23,6 +23,47 @@ def preprocess_string(s):
                     .replace('\'', ' \'')
                     .split())
 
+
+class PretrainDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, index):
+        return self.dataset[index].strip()
+    
+    def collate_fn(self, batch):
+        encoding = self.tokenizer(batch, return_tensors='pt', padding=True, truncation=True, max_length=128)
+        input_ids = encoding['input_ids']
+        attention_mask = encoding['attention_mask']
+
+        labels = input_ids.clone()
+
+        probabilty_matrix = torch.full(labels.shape, 0.15)
+        special_tokens_mask = [
+            self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
+        ]
+
+        probabilty_matrix.masked_fill_(torch.tensor(special_tokens_mask, dtype=bool), value=0.0)
+        masked_indices = torch.bernoulli(probabilty_matrix).bool()
+
+        labels[~masked_indices] = -100
+
+        indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
+        input_ids[indices_replaced] = self.tokenizer.mask_token_id
+
+        indices_random = torch.bernoulli(torch.full(labels.shape, 0.1)).bool() & masked_indices & ~indices_replaced
+        random_words = torch.randint(len(self.tokenizer), labels.shape, dtype = torch.long)
+        input_ids[indices_random] = random_words[indices_random]
+
+        return {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'labels': labels
+        }
 
 class SentenceClassificationDataset(Dataset):
     def __init__(self, dataset, args):

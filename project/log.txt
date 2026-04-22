@@ -1,0 +1,90 @@
+最开始：
+
+last-linear-layer-10-0.001-multitask:
+dev sentiment acc :: 0.391
+dev paraphrase acc :: 0.377
+dev sts corr :: -0.055
+
+full-model-10-1e-05-multitask
+dev sentiment acc :: 0.510
+dev paraphrase acc :: 0.417
+dev sts corr :: -0.098
+
+在提供的data for train上再bert预训练后：
+
+last-linear-layer-10-0.001-multitask:
+dev sentiment acc :: 0.346
+dev paraphrase acc :: 0.369
+dev sts corr :: -0.096
+
+full-model-10-1e-05-multitask
+dev sentiment acc :: 0.511
+dev paraphrase acc :: 0.591
+dev sts corr :: 0.069
+
+上面都是64batch_size
+做三个数据集一起用微调，做三个loss然后加起来，有一点权重：
+
+
+
+数据集上做了1-7优化后再运行，batch_size是16
+
+dev sentiment acc :: 0.499
+dev paraphrase acc :: 0.855
+dev sts corr :: 0.614
+
+
+
+
+
+
+
+
+
+
+
+微调数据集的小子集跑：
+1
+full-model-10-1e-05-multitask
+dev sentiment acc :: 0.272
+dev paraphrase acc :: 0.374
+dev sts corr :: -0.013
+
+做三个数据集一起用微调，做三个loss然后加起来，有一点权重：
+2
+dev sentiment acc :: 0.253
+dev paraphrase acc :: 0.632
+dev sts corr :: 0.277
+
+自己做的pcgrad多任务梯度同方向化(batch_size 64 -> 16)
+3
+dev sentiment acc :: 0.271
+dev paraphrase acc :: 0.680
+dev sts corr :: 0.287
+4
+github的也是（不如自己的用自己的了）：
+dev sentiment acc :: 0.267
+dev paraphrase acc :: 0.678
+dev sts corr :: 0.278
+5
+加了cos最后一层作为相似度好多了：
+dev sentiment acc :: 0.261
+dev paraphrase acc :: 0.667
+dev sts corr :: 0.460
+
+6
+pcgrad多任务梯度混合温度抽样batch
+快了很多很多，但是性能掉了很多
+dev sentiment acc :: 0.253
+dev paraphrase acc :: 0.631
+dev sts corr :: 0.370
+7
+可学习的cos缩放，把常数偏移和缩放变成参数去学习
+dev sentiment acc :: 0.252
+dev paraphrase acc :: 0.633
+dev sts corr :: 0.426
+8
+学习率调度
+dev sentiment acc: 0.253
+dev paraphrase acc: 0.630
+dev sts corr :: 0.458
